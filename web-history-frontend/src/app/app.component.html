@@ -1,0 +1,122 @@
+<div class="history-manager">
+    <header>
+      <h1>Personal Web History Manager</h1>
+    </header>
+  
+    <div class="main-content">
+      <div class="sidebar">
+        <div class="folders-section">
+          <div class="section-header">
+            <h2>Folders</h2>
+            <button (click)="isCreatingFolder = true" *ngIf="!isCreatingFolder">
+              Add Folder
+            </button>
+          </div>
+  
+          <div class="new-folder-form" *ngIf="isCreatingFolder">
+            <input 
+              type="text" 
+              [(ngModel)]="newFolderName" 
+              placeholder="Folder name"
+              (keyup.enter)="createFolder()"
+            >
+            <div class="form-actions">
+              <button (click)="createFolder()">Create</button>
+              <button (click)="isCreatingFolder = false">Cancel</button>
+            </div>
+          </div>
+  
+          <div class="folders-list">
+            <div *ngFor="let folder of folders" class="folder-item">
+              <div class="folder-header">
+                <h3>{{ folder.name }}</h3>
+                <div class="folder-actions">
+                  <button (click)="addCurrentPageToFolder(folder.id)" title="Add current page">+</button>
+                  <button (click)="deleteFolder(folder.id)" title="Delete folder">×</button>
+                </div>
+              </div>
+              
+              <div
+                id="folder-{{folder.id}}"
+                cdkDropList
+                [cdkDropListData]="folder.pages"
+                [cdkDropListConnectedTo]="connectedDropLists"
+                (cdkDropListDropped)="onDrop($event)"
+                class="folder-pages"
+              >
+                <div *ngFor="let page of folder.pages" cdkDrag class="page-item">
+                  <img [src]="page.favicon" alt="" class="favicon">
+                  <a [href]="page.url" target="_blank">{{ page.title }}</a>
+                </div>
+                
+                <div *ngIf="folder.pages.length === 0" class="empty-message">
+                  Drag pages here or add current page
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <div class="content-section">
+        <div class="tabs">
+          <button 
+            class="tab-button" 
+            [class.active]="activeTab === 'history'"
+            (click)="setActiveTab('history')"
+          >
+            Recent History
+          </button>
+          <button 
+            class="tab-button" 
+            [class.active]="activeTab === 'frequent'"
+            (click)="setActiveTab('frequent')"
+          >
+            Most Frequent
+          </button>
+        </div>
+  
+        <!-- History Tab -->
+        <div *ngIf="activeTab === 'history'" class="tab-content">
+          <h2>Browsing History</h2>
+          <div 
+            id="history"
+            cdkDropList
+            [cdkDropListData]="history"
+            [cdkDropListConnectedTo]="folderDropListIds"
+            (cdkDropListDropped)="onDrop($event)"
+            class="history-list"
+          >
+            <div *ngFor="let page of history" cdkDrag class="page-item">
+              <img [src]="page.favicon" alt="" class="favicon">
+              <div class="page-details">
+                <a [href]="page.url" target="_blank">{{ page.title }}</a>
+                <span class="timestamp">{{ page.timestamp | date:'short' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+  
+        <!-- Frequent Tab -->
+        <div *ngIf="activeTab === 'frequent'" class="tab-content">
+          <h2>Most Frequently Visited</h2>
+          <div 
+            id="frequent"
+            cdkDropList
+            [cdkDropListData]="frequentPages"
+            [cdkDropListConnectedTo]="folderDropListIds"
+            (cdkDropListDropped)="onDrop($event)"
+            class="history-list"
+          >
+            <div *ngFor="let page of frequentPages" cdkDrag class="page-item">
+              <img [src]="page.favicon" alt="" class="favicon">
+              <div class="page-details">
+                <a [href]="page.url" target="_blank">{{ page.title }}</a>
+                <span class="visit-count">Visited {{ page.visitCount }} times</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
