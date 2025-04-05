@@ -19,6 +19,8 @@ interface Folder {
   id: string;
   name: string;
   pages: WebPage[];
+  isCollapsed?: boolean; // Property to track collapse state
+  isEditing?: boolean; // Property to track editing state
 }
 
 @Component({
@@ -36,6 +38,7 @@ export class AppComponent implements OnInit {
   isCreatingFolder: boolean = false;
   currentUrl: string = '';
   activeTab: 'history' | 'frequent' = 'history';
+  editingFolderName: string = '';
   
   constructor(private http: HttpClient) {}
 
@@ -91,6 +94,10 @@ export class AppComponent implements OnInit {
   loadFolders() {
     this.http.get<Folder[]>('http://localhost:5000/api/folders').subscribe(
       (data) => {
+        // Initialize collapse state for each folder
+        data.forEach(folder => {
+          folder.isCollapsed = folder.isCollapsed || false;
+        });
         this.folders = data;
       },
       (error) => {
@@ -111,7 +118,8 @@ export class AppComponent implements OnInit {
     const newFolder: Folder = {
       id: Date.now().toString(),
       name: this.newFolderName,
-      pages: []
+      pages: [],
+      isCollapsed: false
     };
     
     this.http.post<Folder>('http://localhost:5000/api/folders', newFolder).subscribe(
@@ -135,6 +143,89 @@ export class AppComponent implements OnInit {
         console.error('Error deleting folder:', error);
       }
     );
+  }
+
+  // Toggle folder collapse state
+  toggleFolderCollapse(folder: Folder) {
+    folder.isCollapsed = !folder.isCollapsed;
+    // Save collapsed state to backend
+    this.updateFolderOrder();
+  }
+  
+  // Start renaming a folder
+  startEditingFolder(folder: Folder, event: Event) {
+    event.stopPropagation(); // Prevent event bubbling to other handlers
+    
+    // Close any other folder that might be in edit mode
+    this.folders.forEach(f => {
+      if (f !== folder) f.isEditing = false;
+    });
+    
+    // Set the current folder to edit mode
+    folder.isEditing = true;
+    this.editingFolderName = folder.name;
+  }
+  
+  // Save the new folder name
+  saveEditedFolderName(folder: Folder) {
+    // Trim whitespace
+    const newName = this.editingFolderName.trim();
+    
+    // Check if name is empty
+    if (newName === '') {
+      alert('Folder name cannot be empty');
+      return;
+    }
+    
+    // Check for name collision
+    const nameExists = this.folders.some(f => 
+      f.id !== folder.id && f.name.toLowerCase() === newName.toLowerCase()
+    );
+    
+    if (nameExists) {
+      alert('A folder with this name already exists');
+      return;
+    }
+    
+    // Save the new name
+    const oldName = folder.name;
+    folder.name = newName;
+    folder.isEditing = false;
+    
+    // Update on backend
+    this.http.post(`http://localhost:5000/api/folders/${folder.id}/rename`, { name: newName }).subscribe(
+      () => {
+        console.log('Folder renamed successfully');
+      },
+      (error) => {
+        console.error('Error renaming folder:', error);
+        // Revert the name on error
+        folder.name = oldName;
+      }
+    );
+  }
+  
+  // Cancel renaming
+  cancelFolderEdit(folder: Folder) {
+    folder.isEditing = false;
+  }
+
+  // New method to update folder order after reordering
+  updateFolderOrder() {
+    this.http.post('http://localhost:5000/api/folders/reorder', this.folders).subscribe(
+      () => {
+        console.log('Folder order updated successfully');
+      },
+      (error) => {
+        console.error('Error updating folder order:', error);
+      }
+    );
+  }
+
+  // Modified method to handle folder reordering
+  onFolderDrop(event: CdkDragDrop<Folder[]>) {
+    moveItemInArray(this.folders, event.previousIndex, event.currentIndex);
+    this.updateFolderOrder();
   }
 
   onDrop(event: CdkDragDrop<WebPage[]>) {

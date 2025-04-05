@@ -291,5 +291,65 @@ def remove_page_from_folder(folder_id, page_id):
     write_folders(folders)
     return '', 204
 
+# Add these new routes to your existing app.py file
+
+@app.route('/api/folders/<folder_id>/rename', methods=['POST'])
+def rename_folder(folder_id):
+    """
+    Rename a folder and check for name collisions
+    """
+    request_data = request.json
+    new_name = request_data.get('name', '').strip()
+    
+    # Validate the new name
+    if not new_name:
+        return jsonify({"error": "Folder name cannot be empty"}), 400
+    
+    # Get current folders
+    folders = read_folders()
+    
+    # Check for name collision
+    for folder in folders:
+        if folder['id'] != folder_id and folder['name'].lower() == new_name.lower():
+            return jsonify({"error": "A folder with this name already exists"}), 409
+    
+    # Update the folder name
+    for folder in folders:
+        if folder['id'] == folder_id:
+            folder['name'] = new_name
+            write_folders(folders)
+            return jsonify({"success": True, "name": new_name}), 200
+    
+    return jsonify({"error": "Folder not found"}), 404
+
+@app.route('/api/folders/reorder', methods=['POST'])
+def reorder_folders():
+    """
+    Update the order of folders and save their collapsed state
+    """
+    updated_folders = request.json
+    
+    # Read current folders to preserve any data not in the request
+    current_folders = read_folders()
+    
+    # Create a map of folder IDs to their current data
+    folder_map = {folder['id']: folder for folder in current_folders}
+    
+    # Update with new order and collapse state
+    reordered_folders = []
+    for folder in updated_folders:
+        folder_id = folder['id']
+        if folder_id in folder_map:
+            # Preserve existing folder data but update order and collapse state
+            updated_folder = folder_map[folder_id]
+            # Add or update isCollapsed property
+            updated_folder['isCollapsed'] = folder.get('isCollapsed', False)
+            reordered_folders.append(updated_folder)
+    
+    # Save the reordered folders
+    write_folders(reordered_folders)
+    
+    return jsonify({"success": True}), 200
+
 if __name__ == '__main__':
     app.run(debug=True)

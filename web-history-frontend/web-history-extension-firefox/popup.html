@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web History Manager</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      max-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
+      padding: 12px;
+      margin: 0;
+    }
+    
+    header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .logo {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+    
+    h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .current-page {
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+    
+    .page-url {
+      color: #6c757d;
+      font-size: 12px;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .page-title {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .folder-section {
+      margin-bottom: 16px;
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .section-header h2 {
+      font-size: 14px;
+      margin: 0;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .folder-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+    }
+    
+    .folder-item {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e9ecef;
+      cursor: pointer;
+    }
+    
+    .folder-item:last-child {
+      border-bottom: none;
+    }
+    
+    .folder-item:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .folder-name {
+      font-size: 13px;
+    }
+    
+    .add-button {
+      padding: 2px 6px;
+      border-radius: 3px;
+      background-color: #0060df;
+      color: white;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    
+    .add-button:hover {
+      background-color: #003eaa;
+    }
+    
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    
+    .action-button {
+      flex-grow: 1;
+      padding: 8px 0;
+      text-align: center;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+      color: #0060df;
+      border: 1px solid #e9ecef;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    
+    .action-button:hover {
+      background-color: #e9ecef;
+    }
+    
+    .new-folder-form {
+      margin-top: 12px;
+      display: none;
+    }
+    
+    .new-folder-form.visible {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 8px;
+    }
+    
+    .form-control {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    
+    .form-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .form-button {
+      flex-grow: 1;
+      padding: 6px 0;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      border: none;
+    }
+    
+    .save-button {
+      background-color: #0060df;
+      color: white;
+    }
+    
+    .cancel-button {
+      background-color: #6c757d;
+      color: white;
+    }
+    
+    .notification {
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+    
+    .notification.success {
+      display: block;
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .notification.error {
+      display: block;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .recent-folders {
+      margin-top: 12px;
+    }
+    
+    .recent-folders-header {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    .recent-folder-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .recent-folder-item {
+      padding: 4px 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    
+    .recent-folder-item:hover {
+      background-color: #dee2e6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="icons/icon48.png" alt="Logo" class="logo">
+    <h1>Web History Manager</h1>
+  </header>
+  
+  <div id="notification" class="notification"></div>
+  
+  <div class="current-page">
+    <div class="page-title" id="pageTitle">Loading current page...</div>
+    <div class="page-url" id="pageUrl"></div>
+  </div>
+  
+  <div class="folder-section">
+    <div class="section-header">
+      <h2>Add current page to folder</h2>
+      <button id="newFolderBtn" class="add-button">+ New Folder</button>
+    </div>
+    
+    <div id="folderList" class="folder-list">
+      <div class="folder-item">
+        <span class="folder-name">Loading folders...</span>
+      </div>
+    </div>
+    
+    <div id="newFolderForm" class="new-folder-form">
+      <div class="form-group">
+        <input type="text" id="folderNameInput" class="form-control" placeholder="Enter folder name">
+      </div>
+      <div class="form-buttons">
+        <button id="saveFolderBtn" class="form-button save-button">Create</button>
+        <button id="cancelFolderBtn" class="form-button cancel-button">Cancel</button>
+      </div>
+    </div>
+    
+    <div id="recentFolders" class="recent-folders">
+      <div class="recent-folders-header">Recently used folders</div>
+      <div id="recentFolderList" class="recent-folder-list">
+        <!-- Recent folders will be added here -->
+      </div>
+    </div>
+  </div>
+  
+  <div class="action-buttons">
+    <a href="http://localhost:4200" target="_blank" class="action-button">Open Manager</a>
+    <button id="captureBtnToggle" class="action-button">Pause Capture</button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
