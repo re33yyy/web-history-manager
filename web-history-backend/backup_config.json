@@ -1,0 +1,5 @@
+{
+  "backup_interval_seconds": 3600,
+  "data_directory": ".",
+  "backup_directory": "D:\\Projects"
+}

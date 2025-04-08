@@ -6,9 +6,15 @@
 }
 
 header {
-  margin-bottom: 20px;
+  margin-bottom: 4px;
   border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+  padding: 2px 0;
+}
+
+header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 h1 {
@@ -18,11 +24,11 @@ h1 {
 
 .main-content {
   display: flex;
-  gap: 20px;
+  gap: 10px;
 }
 
 .sidebar {
-  width: 300px;
+  width: 600px;
   flex-shrink: 0;
 }
 
@@ -34,18 +40,25 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 2px;
+}
+
+.section-header h4 {
+  margin: 0; /* remove default heading spacing */
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .folder-item {
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  overflow: hidden;
   position: relative;
-  /* Add a subtle transition for hover effect */
-  transition: box-shadow 0.2s ease;
+  background-color: #f8f9fa;
+  border-radius: 3px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  transition: background-color 0.2s ease;
+  display: block; /* ✅ ensure it's a block layout, not flex */
 }
+
 
 .folder-item:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -53,56 +66,56 @@ h1 {
 
 /* Add styles for the folder drag handle */
 .folder-drag-handle {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 24px;
+  width: 20px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: rgba(0, 0, 0, 0.08);
   cursor: move;
-  border-top-left-radius: 4px;
-  border-bottom-left-radius: 4px;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+  margin-right: 6px;
 }
 
+
+
 .drag-icon {
-  color: #aaa;
-  font-size: 12px;
+  color: #888; /* slightly darker for better visibility */
+  font-size: 11px;
   line-height: 1;
 }
 
 .folder-header {
-  background-color: #e9ecef;
-  padding: 8px 12px 8px 28px; /* Add left padding to accommodate drag handle */
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  padding: 4px 10px;
+  background-color: #e9ecef;
+  min-height: 25px;
+  gap: 6px;
 }
 
-.folder-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-grow: 1;
+.folder-contents {
+  padding: 4px 10px 4px 28px; /* align with folder-header */
 }
 
-/* Folder name editing styles */
+.folder-title,
 .folder-edit-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-grow: 1;
+  font-size: 0.9rem;
 }
 
 .folder-name-input {
   flex-grow: 1;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border: 1px solid #ccc;
   border-radius: 3px;
-  font-size: 14px;
-  height: 24px;
+  font-size: 13px;
+  height: 22px;
 }
 
 .edit-actions {
@@ -111,18 +124,26 @@ h1 {
 }
 
 .edit-btn {
-  background: none;
+  background: transparent;
   border: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   padding: 0;
+  margin-left: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   border-radius: 3px;
   cursor: pointer;
+  color: #555;
+  transition: background-color 0.2s ease;
 }
+
+.edit-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
 
 .edit-btn.save {
   color: green;
@@ -142,16 +163,24 @@ h1 {
 
 .collapse-toggle {
   background: none;
-  border: none;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  border: 5px solid #ccc;  /* ✅ Adds a clear border */
+  padding: 4px;
+  width: 40px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: #333;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 20px;  /* ✅ Larger triangle symbol */
+  line-height: 1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.collapse-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  border-color: #888;
 }
 
 .folder-header h3 {
@@ -162,7 +191,7 @@ h1 {
 
 .folder-actions {
   display: flex;
-  gap: 5px;
+  gap: 20px;
 }
 
 .folder-actions button {
@@ -186,7 +215,7 @@ h1 {
 
 .folder-pages {
   min-height: 50px;
-  padding: 8px;
+  padding: 4px;
 }
 
 .history-list {
@@ -200,22 +229,25 @@ h1 {
 .page-item {
   display: flex;
   align-items: center;
-  padding: 8px;
-  margin-bottom: 5px;
+  padding: 4px 6px; /* reduced from 8px */
+  margin-bottom: 3px; /* reduced from 5px */
   background-color: white;
-  border-radius: 4px;
+  border-radius: 3px;
   border: 1px solid #ddd;
   cursor: move;
+  font-size: 0.9rem;
+  line-height: 1.2;
 }
+
 
 .page-item:hover {
   background-color: #f8f9fa;
 }
 
 .favicon {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
 }
 
 .page-details {
@@ -341,4 +373,19 @@ button:hover {
 .folder-pages.cdk-drop-list-dragging .page-item:not(.cdk-drag-placeholder),
 .history-list.cdk-drop-list-dragging .page-item:not(.cdk-drag-placeholder) {
   transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.page-entry {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.top-controls {
+  display: flex;
+  justify-content: space-between; /* or try space-evenly or space-around */
+  align-items: center;
+  gap: 10px; /* Optional, for breathing room */
+  margin-bottom: 10px;
 }

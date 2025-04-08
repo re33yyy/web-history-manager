@@ -1,0 +1,28 @@
+@echo off
+setlocal
+
+REM Set paths
+set APP_DIR=D:\Projects\web-history-manager\web-history-backend
+set PYTHON_EXE=D:\Projects\web-history-manager\venv\Scripts\python.exe
+set APP_PY=app.py
+
+REM Prompt for the backup timestamp
+set /p TIMESTAMP=Enter backup timestamp (e.g. 20250407_120653): 
+
+REM Confirm restore
+set /p CONFIRM=Are you sure you want to restore from %TIMESTAMP%? (Y/N): 
+if /I not "%CONFIRM%"=="Y" (
+    echo Restore cancelled.
+    pause
+    exit /b
+)
+
+REM Change to the app.py folder
+cd /d "%APP_DIR%"
+
+REM Run the restore
+echo Restoring from backup...
+%PYTHON_EXE% %APP_PY% --restore %TIMESTAMP%
+
+pause
+endlocal

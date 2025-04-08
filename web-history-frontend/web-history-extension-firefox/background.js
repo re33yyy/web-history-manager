@@ -16,7 +16,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             id: Date.now().toString(),
             url: tab.url,
             title: tab.title || tab.url,
-            favicon: tab.favIconUrl || 'icons/default-favicon.png',
+            favicon: tab.favIconUrl || 'assets/icons/default-favicon.png',
             timestamp: new Date().toISOString()
           };
           
@@ -71,7 +71,7 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
         id: Date.now().toString(),
         url: info.linkUrl,
         title: info.linkText || info.linkUrl,
-        favicon: 'icons/default-favicon.png',
+        favicon: 'assets/icons/default-favicon.png',
         timestamp: new Date().toISOString()
       };
     } else {
@@ -80,7 +80,7 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
         id: Date.now().toString(),
         url: tab.url,
         title: tab.title || tab.url,
-        favicon: tab.favIconUrl || 'icons/default-favicon.png',
+        favicon: tab.favIconUrl || 'assets/icons/default-favicon.png',
         timestamp: new Date().toISOString()
       };
     }

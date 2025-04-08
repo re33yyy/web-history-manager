@@ -54,7 +54,7 @@ function getCurrentTab() {
         id: Date.now().toString(),
         url: tab.url,
         title: tab.title || tab.url,
-        favicon: tab.favIconUrl || 'icons/default-favicon.png',
+        favicon: tab.favIconUrl || 'assets/icons/default-favicon.png',
         timestamp: new Date().toISOString()
       };
       
@@ -259,9 +259,9 @@ function addToRecentFolders(folder) {
   // Add to the beginning of the list
   recentFolders.unshift(folder);
   
-  // Limit to 5 recent folders
-  if (recentFolders.length > 5) {
-    recentFolders = recentFolders.slice(0, 5);
+  // Limit to 15 recent folders
+  if (recentFolders.length > 15) {
+    recentFolders = recentFolders.slice(0, 15);
   }
   
   // Save to storage

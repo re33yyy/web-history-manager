@@ -70,6 +70,7 @@ export class AppComponent implements OnInit {
   }
     
   loadHistory() {
+    console.log("loadHistory()")
     this.http.get<WebPage[]>('http://localhost:5000/api/history').subscribe(
       (data) => {
         this.history = data;
@@ -92,6 +93,7 @@ export class AppComponent implements OnInit {
   }
 
   loadFolders() {
+    console.log("loadFolders()")
     this.http.get<Folder[]>('http://localhost:5000/api/folders').subscribe(
       (data) => {
         // Initialize collapse state for each folder
@@ -228,6 +230,17 @@ export class AppComponent implements OnInit {
     this.updateFolderOrder();
   }
 
+  updateFolderPageOrder(folderId: string, pages: WebPage[]) {
+    this.http.post(`/api/folders/${folderId}/pages/reorder`, pages).subscribe(
+      () => {
+        console.log('Folder page order saved.');
+      },
+      (error) => {
+        console.error('Failed to save page order:', error);
+      }
+    );
+  }
+
   onDrop(event: CdkDragDrop<WebPage[]>) {
     if (event.previousContainer === event.container) {
       // Reordering within the same container
@@ -236,12 +249,48 @@ export class AppComponent implements OnInit {
         event.previousIndex,
         event.currentIndex
       );
+      if (event.container.id.startsWith('folder-')) {
+        const folderId = event.container.id.replace('folder-', '');
+        const folder = this.folders.find(f => f.id === folderId);
+        if (folder) {
+          this.updateFolderPageOrder(folderId, folder.pages);
+        }
+      }
+
     } else {
-      // Get the page being moved
+      // Get the page being moved before we modify the arrays
       const page = event.previousContainer.data[event.previousIndex];
       
+      // Check if we're moving FROM a folder TO a non-folder (removing from folder)
+      if (event.previousContainer.id.startsWith('folder-') && 
+          !event.container.id.startsWith('folder-')) {
+        
+        // First complete the UI operation
+        transferArrayItem(
+          event.previousContainer.data,
+          event.container.data,
+          event.previousIndex,
+          event.currentIndex
+        );
+        
+        // Then sync with backend
+        const folderId = event.previousContainer.id.replace('folder-', '');
+        console.log(`Removing page with ID ${page.id} from folder ${folderId}`);
+        
+        // Use the relative URL path with the proxy
+        this.http.delete(`/api/folders/${folderId}/pages/${page.id}`).subscribe(
+          () => {
+            console.log('Page removed from folder successfully');
+          },
+          (error) => {
+            console.error('Error removing page from folder:', error);
+            console.log('Page details:', JSON.stringify(page));
+            // Consider how to handle the error (maybe show a message but don't revert UI)
+          }
+        );
+      } 
       // Moving item from one container to another
-      if (event.container.id.startsWith('folder-')) {
+      else if (event.container.id.startsWith('folder-')) {
         // We're dropping into a folder - check if this URL already exists in the folder
         const folderId = event.container.id.replace('folder-', '');
         const folder = this.folders.find(f => f.id === folderId);
@@ -250,7 +299,7 @@ export class AppComponent implements OnInit {
         const urlExists = folder?.pages.some(p => p.url === page.url);
         
         if (!urlExists) {
-          // If URL doesn't exist in the folder, add it
+          // First complete the UI operation
           transferArrayItem(
             event.previousContainer.data,
             event.container.data,
@@ -258,10 +307,10 @@ export class AppComponent implements OnInit {
             event.currentIndex
           );
           
-          // Update the backend
+          // Then update backend
           const pageId = event.container.data[event.currentIndex].id;
           
-          this.http.post(`http://localhost:5000/api/folders/${folderId}/pages/${pageId}`, {}).subscribe(
+          this.http.post(`/api/folders/${folderId}/pages/${pageId}`, {}).subscribe(
             () => {
               console.log('Page added to folder successfully');
             },
@@ -290,6 +339,11 @@ export class AppComponent implements OnInit {
 
   addCurrentPageToFolder(folderId: string) {
     // This would get the current page from the browser in a real implementation
+    // Skip if we're using the example URL
+    if (this.currentUrl === 'https://example.com/current-page') {
+      alert('Cannot add example page. This feature requires the browser extension.');
+      return;
+    }
     const currentPage: WebPage = {
       id: Date.now().toString(),
       url: this.currentUrl,
@@ -321,4 +375,33 @@ export class AppComponent implements OnInit {
   setActiveTab(tab: 'history' | 'frequent') {
     this.activeTab = tab;
   }
+
+  refreshData() {
+    this.loadHistory();
+    this.loadFolders();
+  }  
+
+  extractDomain(url: string): string {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname + parsed.pathname;
+    } catch {
+      return url;
+    }
+  }
+  
+  formatTooltip(page: WebPage): string {
+    return `${page.title || page.url}\nLast visited: ${page.timestamp || 'N/A'}\nVisits: ${page.visitCount || 0}`;
+  }  
+
+  exportBookmarks() {
+    const link = document.createElement('a');
+    link.href = '/api/export-bookmarks';
+    link.download = 'webhistory_bookmarks.html';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
 }

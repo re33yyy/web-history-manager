@@ -1,25 +1,27 @@
 <div class="history-manager">
   <header>
-    <h1>Personal Web History Manager</h1>
+    <h4>Personal Web History Manager</h4>
   </header>
+
+  <div class="section-header">
+    <h4>Folders</h4>
+  </div>
 
   <div class="main-content">
     <div class="sidebar">
       <div class="folders-section">
-        <div class="section-header">
-          <h2>Folders</h2>
-          <button (click)="isCreatingFolder = true" *ngIf="!isCreatingFolder">
-            Add Folder
+        <div class="top-controls">
+          <button (click)="refreshData()" class="refresh-btn">
+            <span class="refresh-icon">↻</span> Refresh
           </button>
-        </div>
 
+          <button (click)="exportBookmarks()" class="export-btn">
+            ⤓ Export to Bookmarks
+          </button>
+          <button *ngIf="!isCreatingFolder" (click)="isCreatingFolder = true">Add Folder</button>
+        </div>
         <div class="new-folder-form" *ngIf="isCreatingFolder">
-          <input 
-            type="text" 
-            [(ngModel)]="newFolderName" 
-            placeholder="Folder name"
-            (keyup.enter)="createFolder()"
-          >
+          <input type="text" [(ngModel)]="newFolderName" placeholder="Folder name" (keyup.enter)="createFolder()">
           <div class="form-actions">
             <button (click)="createFolder()">Create</button>
             <button (click)="isCreatingFolder = false">Cancel</button>
@@ -27,41 +29,31 @@
         </div>
 
         <!-- Reorderable folders container -->
-        <div 
-          cdkDropList 
-          (cdkDropListDropped)="onFolderDrop($event)"
-          [cdkDropListData]="folders"
-          class="folders-list"
-        >
+        <div cdkDropList (cdkDropListDropped)="onFolderDrop($event)" [cdkDropListData]="folders" class="folders-list">
           <div *ngFor="let folder of folders" cdkDrag class="folder-item">
-            <!-- Drag handle for the folder -->
-            <div class="folder-drag-handle" cdkDragHandle>
-              <span class="drag-icon">⋮⋮</span>
-            </div>
-            
+
+
             <div class="folder-header">
+              <!-- Drag handle for the folder -->
+              <div class="folder-drag-handle" cdkDragHandle>
+                <span class="drag-icon">⋮⋮</span>
+              </div>
               <div class="folder-title">
                 <!-- Collapse toggle button -->
                 <button class="collapse-toggle" (click)="toggleFolderCollapse(folder)">
                   <span *ngIf="folder.isCollapsed">▶</span>
                   <span *ngIf="!folder.isCollapsed">▼</span>
                 </button>
-                
+
                 <!-- Folder name (editable) -->
                 <h3 *ngIf="!folder.isEditing" (dblclick)="startEditingFolder(folder, $event)">
                   {{ folder.name }}
                 </h3>
-                
+
                 <!-- Folder name editing form -->
                 <div *ngIf="folder.isEditing" class="folder-edit-form" (click)="$event.stopPropagation()">
-                  <input 
-                    type="text" 
-                    [(ngModel)]="editingFolderName" 
-                    (keyup.enter)="saveEditedFolderName(folder)"
-                    (keyup.escape)="cancelFolderEdit(folder)"
-                    class="folder-name-input"
-                    autocomplete="off"
-                  >
+                  <input type="text" [(ngModel)]="editingFolderName" (keyup.enter)="saveEditedFolderName(folder)"
+                    (keyup.escape)="cancelFolderEdit(folder)" class="folder-name-input" autocomplete="off">
                   <div class="edit-actions">
                     <button class="edit-btn save" (click)="saveEditedFolderName(folder)" title="Save">✓</button>
                     <button class="edit-btn cancel" (click)="cancelFolderEdit(folder)" title="Cancel">✕</button>
@@ -70,26 +62,18 @@
               </div>
               <div class="folder-actions">
                 <button (click)="startEditingFolder(folder, $event)" title="Rename folder">✎</button>
-                <button (click)="addCurrentPageToFolder(folder.id)" title="Add current page">+</button>
                 <button (click)="deleteFolder(folder.id)" title="Delete folder">×</button>
               </div>
             </div>
-            
+
             <!-- Folder content (collapsible) -->
-            <div
-              *ngIf="!folder.isCollapsed"
-              id="folder-{{folder.id}}"
-              cdkDropList
-              [cdkDropListData]="folder.pages"
-              [cdkDropListConnectedTo]="connectedDropLists"
-              (cdkDropListDropped)="onDrop($event)"
-              class="folder-pages"
-            >
+            <div *ngIf="!folder.isCollapsed" id="folder-{{folder.id}}" cdkDropList [cdkDropListData]="folder.pages"
+              [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)" class="folder-pages">
               <div *ngFor="let page of folder.pages" cdkDrag class="page-item">
                 <img [src]="page.favicon" alt="" class="favicon">
-                <a [href]="page.url" target="_blank">{{ page.title }}</a>
+                <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
               </div>
-              
+
               <div *ngIf="folder.pages.length === 0" class="empty-message">
                 Drag pages here or add current page
               </div>
@@ -101,38 +85,22 @@
 
     <div class="content-section">
       <div class="tabs">
-        <button 
-          class="tab-button" 
-          [class.active]="activeTab === 'history'"
-          (click)="setActiveTab('history')"
-        >
+        <button class="tab-button" [class.active]="activeTab === 'history'" (click)="setActiveTab('history')">
           Recent History
         </button>
-        <button 
-          class="tab-button" 
-          [class.active]="activeTab === 'frequent'"
-          (click)="setActiveTab('frequent')"
-        >
+        <button class="tab-button" [class.active]="activeTab === 'frequent'" (click)="setActiveTab('frequent')">
           Most Frequent
         </button>
       </div>
 
       <!-- History Tab -->
       <div *ngIf="activeTab === 'history'" class="tab-content">
-        <h2>Browsing History</h2>
-        <div 
-          id="history"
-          cdkDropList
-          [cdkDropListData]="history"
-          [cdkDropListConnectedTo]="folderDropListIds"
-          (cdkDropListDropped)="onDrop($event)"
-          class="history-list"
-        >
+        <div id="history" cdkDropList [cdkDropListData]="history" [cdkDropListConnectedTo]="folderDropListIds"
+          (cdkDropListDropped)="onDrop($event)" class="history-list">
           <div *ngFor="let page of history" cdkDrag class="page-item">
             <img [src]="page.favicon" alt="" class="favicon">
             <div class="page-details">
-              <a [href]="page.url" target="_blank">{{ page.title }}</a>
-              <span class="timestamp">{{ page.timestamp | date:'short' }}</span>
+              <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
             </div>
           </div>
         </div>
@@ -140,20 +108,12 @@
 
       <!-- Frequent Tab -->
       <div *ngIf="activeTab === 'frequent'" class="tab-content">
-        <h2>Most Frequently Visited</h2>
-        <div 
-          id="frequent"
-          cdkDropList
-          [cdkDropListData]="frequentPages"
-          [cdkDropListConnectedTo]="folderDropListIds"
-          (cdkDropListDropped)="onDrop($event)"
-          class="history-list"
-        >
+        <div id="frequent" cdkDropList [cdkDropListData]="frequentPages" [cdkDropListConnectedTo]="folderDropListIds"
+          (cdkDropListDropped)="onDrop($event)" class="history-list">
           <div *ngFor="let page of frequentPages" cdkDrag class="page-item">
             <img [src]="page.favicon" alt="" class="favicon">
             <div class="page-details">
-              <a [href]="page.url" target="_blank">{{ page.title }}</a>
-              <span class="visit-count">Visited {{ page.visitCount }} times</span>
+              <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
             </div>
           </div>
         </div>
