@@ -10,7 +10,7 @@ interface WebPage {
   id: string;
   url: string;
   title: string;
-  favicon: string;
+  // favicon: string;
   timestamp: Date;
   visitCount?: number;
 }
@@ -71,7 +71,8 @@ export class AppComponent implements OnInit {
     
   loadHistory() {
     console.log("loadHistory()")
-    this.http.get<WebPage[]>('http://localhost:5000/api/history').subscribe(
+    const timestamp = new Date().getTime();
+    this.http.get<WebPage[]>(`http://localhost:5000/api/history?t=${timestamp}`).subscribe(
       (data) => {
         this.history = data;
       },
@@ -82,7 +83,9 @@ export class AppComponent implements OnInit {
   }
 
   loadFrequentPages() {
-    this.http.get<WebPage[]>('http://localhost:5000/api/history/frequent').subscribe(
+    console.log("loadFrequentPages()")
+    const timestamp = new Date().getTime();
+    this.http.get<WebPage[]>(`http://localhost:5000/api/history/frequent?t=${timestamp}`).subscribe(
       (data) => {
         this.frequentPages = data;
       },
@@ -94,7 +97,8 @@ export class AppComponent implements OnInit {
 
   loadFolders() {
     console.log("loadFolders()")
-    this.http.get<Folder[]>('http://localhost:5000/api/folders').subscribe(
+    const timestamp = new Date().getTime();
+    this.http.get<Folder[]>(`http://localhost:5000/api/folders?t=${timestamp}`).subscribe(
       (data) => {
         // Initialize collapse state for each folder
         data.forEach(folder => {
@@ -281,6 +285,7 @@ export class AppComponent implements OnInit {
         this.http.delete(`/api/folders/${folderId}/pages/${page.id}`).subscribe(
           () => {
             console.log('Page removed from folder successfully');
+            this.refreshData()
           },
           (error) => {
             console.error('Error removing page from folder:', error);
@@ -313,6 +318,7 @@ export class AppComponent implements OnInit {
           this.http.post(`/api/folders/${folderId}/pages/${pageId}`, {}).subscribe(
             () => {
               console.log('Page added to folder successfully');
+              this.refreshData()
             },
             (error) => {
               console.error('Error adding page to folder:', error);
@@ -348,7 +354,7 @@ export class AppComponent implements OnInit {
       id: Date.now().toString(),
       url: this.currentUrl,
       title: 'Current Page',
-      favicon: 'favicon.ico',
+      //favicon: 'favicon.ico',
       timestamp: new Date()
     };
     
@@ -378,6 +384,7 @@ export class AppComponent implements OnInit {
 
   refreshData() {
     this.loadHistory();
+    this.loadFrequentPages();
     this.loadFolders();
   }  
 

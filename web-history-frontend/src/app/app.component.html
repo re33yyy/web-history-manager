@@ -70,7 +70,7 @@
             <div *ngIf="!folder.isCollapsed" id="folder-{{folder.id}}" cdkDropList [cdkDropListData]="folder.pages"
               [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)" class="folder-pages">
               <div *ngFor="let page of folder.pages" cdkDrag class="page-item">
-                <img [src]="page.favicon" alt="" class="favicon">
+                <!-- <img [src]="page.favicon" alt="" class="favicon"> -->
                 <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
               </div>
 
@@ -98,7 +98,7 @@
         <div id="history" cdkDropList [cdkDropListData]="history" [cdkDropListConnectedTo]="folderDropListIds"
           (cdkDropListDropped)="onDrop($event)" class="history-list">
           <div *ngFor="let page of history" cdkDrag class="page-item">
-            <img [src]="page.favicon" alt="" class="favicon">
+            <!-- <img [src]="page.favicon" alt="" class="favicon"> -->
             <div class="page-details">
               <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
             </div>
@@ -111,7 +111,7 @@
         <div id="frequent" cdkDropList [cdkDropListData]="frequentPages" [cdkDropListConnectedTo]="folderDropListIds"
           (cdkDropListDropped)="onDrop($event)" class="history-list">
           <div *ngFor="let page of frequentPages" cdkDrag class="page-item">
-            <img [src]="page.favicon" alt="" class="favicon">
+            <!-- <img [src]="page.favicon" alt="" class="favicon"> -->
             <div class="page-details">
               <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
             </div>

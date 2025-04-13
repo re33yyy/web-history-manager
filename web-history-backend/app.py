@@ -14,6 +14,9 @@ import threading
 import time
 from datetime import datetime
 import argparse
+import hashlib
+import time
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -24,6 +27,7 @@ FOLDERS_FILE = 'folders.json'
 FREQUENCY_FILE = 'frequency.json'
 CONFIG_FILE = "backup_config.json"
 INTERVAL_FALLBACK = 3600
+BACKUP_METADATA_FILE = "backup_metadata.json"
 
 # Initialize data files if they don't exist
 def init_data_files():
@@ -43,17 +47,51 @@ init_data_files()
 
 # Helper functions to read/write data
 def read_history():
-    with open(HISTORY_FILE, 'r') as f:
-        try:
-            history = json.load(f)
-            for page in history:
-                if 'timestamp' in page and isinstance(page['timestamp'], str):
-                    page['timestamp'] = datetime.fromisoformat(page['timestamp'].replace('Z', '+00:00'))
-            return history
-        except json.JSONDecodeError:
+    print(f"Attempting to read history from {HISTORY_FILE}")
+    try:
+        if os.path.exists(HISTORY_FILE):
+            file_size = os.path.getsize(HISTORY_FILE)
+            print(f"History file exists, size: {file_size} bytes")
+            
+            with open(HISTORY_FILE, 'r') as f:
+                content = f.read()
+                print(f"Read {len(content)} characters from file")
+                
+                if not content.strip():
+                    print("Warning: History file is empty")
+                    return []
+                
+                history = json.loads(content)
+                print(f"Parsed JSON, found {len(history)} items")
+                
+                for page in history:
+                    if 'timestamp' in page and isinstance(page['timestamp'], str):
+                        try:
+                            page['timestamp'] = datetime.fromisoformat(page['timestamp'].replace('Z', '+00:00'))
+                        except Exception as e:
+                            print(f"Error parsing timestamp {page['timestamp']}: {e}")
+                            # Keep the original string if parsing fails
+                return history
+        else:
+            print(f"History file not found at {HISTORY_FILE}")
             return []
-
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error in history file: {e}")
+        # Try to read the file content to see what might be wrong
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                print(f"First 200 characters: {f.read(200)}")
+        except:
+            pass
+        return []
+    except Exception as e:
+        print(f"Error reading history file: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+    
 def write_history(history):
+    """Write history data to file with atomic operations to prevent corruption"""
     # Convert datetime objects to strings for JSON serialization
     serializable_history = []
     for page in history:
@@ -62,9 +100,27 @@ def write_history(history):
             page_copy['timestamp'] = page_copy['timestamp'].isoformat()
         serializable_history.append(page_copy)
     
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(serializable_history, f)
-
+    # Write to a temporary file first
+    temp_file = HISTORY_FILE + '.temp'
+    try:
+        with open(temp_file, 'w') as f:
+            json.dump(serializable_history, f)
+        
+        # Use os.replace for atomic file operation
+        # This ensures the file is either completely written or not changed at all
+        import os
+        os.replace(temp_file, HISTORY_FILE)
+        return True
+    except Exception as e:
+        print(f"Error writing history file: {e}")
+        # Clean up the temp file if something went wrong
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except:
+            pass
+        return False
+    
 def read_folders():
     with open(FOLDERS_FILE, 'r') as f:
         try:
@@ -73,6 +129,7 @@ def read_folders():
             return []
 
 def write_folders(folders):
+    """Write folders data to file with atomic operations to prevent corruption"""
     # Convert datetime objects to strings for JSON serialization
     serializable_folders = []
     for folder in folders:
@@ -86,9 +143,26 @@ def write_folders(folders):
         folder_copy['pages'] = pages
         serializable_folders.append(folder_copy)
     
-    with open(FOLDERS_FILE, 'w') as f:
-        json.dump(serializable_folders, f)
-
+    # Write to a temporary file first
+    temp_file = FOLDERS_FILE + '.temp'
+    try:
+        with open(temp_file, 'w') as f:
+            json.dump(serializable_folders, f)
+        
+        # Use os.replace for atomic file operation
+        import os
+        os.replace(temp_file, FOLDERS_FILE)
+        return True
+    except Exception as e:
+        print(f"Error writing folders file: {e}")
+        # Clean up the temp file if something went wrong
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except:
+            pass
+        return False
+    
 def read_frequency():
     with open(FREQUENCY_FILE, 'r') as f:
         try:
@@ -97,9 +171,27 @@ def read_frequency():
             return {}
 
 def write_frequency(frequency):
-    with open(FREQUENCY_FILE, 'w') as f:
-        json.dump(frequency, f)
-
+    """Write frequency data to file with atomic operations to prevent corruption"""
+    # Write to a temporary file first
+    temp_file = FREQUENCY_FILE + '.temp'
+    try:
+        with open(temp_file, 'w') as f:
+            json.dump(frequency, f)
+        
+        # Use os.replace for atomic file operation
+        import os
+        os.replace(temp_file, FREQUENCY_FILE)
+        return True
+    except Exception as e:
+        print(f"Error writing frequency file: {e}")
+        # Clean up the temp file if something went wrong
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except:
+            pass
+        return False
+    
 def get_domain(url):
     """Extract domain from URL"""
     parsed_url = urlparse(url)
@@ -107,13 +199,20 @@ def get_domain(url):
 
 @app.after_request
 def add_header(response):
-    response.headers["Cache-Control"] = "no-store"
+    # More aggressive cache prevention
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 # Routes for history
 @app.route('/api/history', methods=['GET'])
 def get_history():
     history = read_history()
+    print(f"Read {len(history)} items from history.json")
+    # Print first item to debug
+    if history:
+        print(f"First item sample: {history[0]}")
     # Convert datetime objects to strings for JSON serialization
     for page in history:
         if 'timestamp' in page and isinstance(page['timestamp'], datetime):
@@ -129,7 +228,10 @@ def add_history():
         page['id'] = str(uuid.uuid4())
     if 'timestamp' not in page:
         page['timestamp'] = datetime.now().isoformat()
-    
+
+    if 'favicon' in page:
+            del page['favicon']
+            
     # Update frequency counter
     frequency = read_frequency()
     url = page['url']
@@ -139,13 +241,13 @@ def add_history():
         frequency[url]['count'] += 1
         if 'title' in page:
             frequency[url]['title'] = page['title']
-        if 'favicon' in page:
-            frequency[url]['favicon'] = page['favicon']
+        # if 'favicon' in page:
+        #     frequency[url]['favicon'] = page['favicon']
     else:
         frequency[url] = {
             'count': 1,
             'title': page.get('title', url),
-            'favicon': page.get('favicon', ''),
+            # 'favicon': page.get('favicon', ''),
             'domain': domain
         }
     
@@ -169,7 +271,7 @@ def get_frequent_pages():
                 'id': str(uuid.uuid4()),  # Generate a new ID for this view
                 'url': url,
                 'title': data.get('title', url),
-                'favicon': data.get('favicon', ''),
+                # 'favicon': data.get('favicon', ''),
                 'visitCount': data.get('count', 0),
                 'timestamp': datetime.now().isoformat()  # Use current time as timestamp
         })
@@ -398,30 +500,6 @@ def load_backup_config():
     with open(CONFIG_FILE, "r") as f:
         return json.load(f)
 
-def perform_backup():
-    print("Starting backup...")
-    try:
-        config = load_backup_config()
-        interval = config.get("backup_interval_seconds", INTERVAL_FALLBACK)
-        src_dir = os.path.abspath(config.get("data_directory", "."))
-        backup_dir = os.path.abspath(config.get("backup_directory", "."))
-        os.makedirs(backup_dir, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        for filename in [FOLDERS_FILE, HISTORY_FILE, FREQUENCY_FILE]:
-            src_path = os.path.join(src_dir, filename)
-            if os.path.exists(src_path):
-                base_name = filename.rsplit(".json", 1)[0]
-                dst_path = os.path.join(backup_dir, f"{base_name}_{timestamp}.json")
-                shutil.copy2(src_path, dst_path)
-                print(f"Backed up {filename} to {dst_path}")
-            else:
-                print(f"Warning: {filename} not found at {src_path}")
-        return interval
-    except Exception as e:
-        print(f"Backup error: {e}")
-        return INTERVAL_FALLBACK
-
 def backup_files_periodically():
     while True:
         interval = perform_backup()
@@ -487,7 +565,100 @@ def export_bookmarks():
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Disposition': 'attachment; filename="webhistory_bookmarks.html"'
     }
+    
+def calculate_file_hash(filepath):
+    """Calculate SHA-256 hash of a file to detect changes"""
+    if not os.path.exists(filepath):
+        return None
+    
+    hasher = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        buf = f.read(65536)  # Read in 64k chunks
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = f.read(65536)
+    return hasher.hexdigest()
 
+def get_backup_metadata():
+    """Get information about the last backup"""
+    if os.path.exists(BACKUP_METADATA_FILE):
+        try:
+            with open(BACKUP_METADATA_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {
+        "last_backup_time": 0,
+        "file_hashes": {}
+    }
+
+def save_backup_metadata(metadata):
+    """Save information about the current backup"""
+    with open(BACKUP_METADATA_FILE, 'w') as f:
+        json.dump(metadata, f)
+
+def perform_backup():
+    print("Checking for changes since last backup...")
+    try:
+        config = load_backup_config()
+        interval = config.get("backup_interval_seconds", INTERVAL_FALLBACK)
+        src_dir = os.path.abspath(config.get("data_directory", "."))
+        backup_dir = os.path.abspath(config.get("backup_directory", "."))
+        os.makedirs(backup_dir, exist_ok=True)
+
+        # Get last backup info
+        metadata = get_backup_metadata()
+        current_hashes = {}
+        files_changed = []  # Track which files changed
+
+        # Calculate current hash for each file and compare with stored hash
+        for filename in [FOLDERS_FILE, HISTORY_FILE, FREQUENCY_FILE]:
+            src_path = os.path.join(src_dir, filename)
+            if os.path.exists(src_path):
+                current_hash = calculate_file_hash(src_path)
+                current_hashes[filename] = current_hash
+                
+                # Check if file exists in metadata and if hash has changed
+                if filename in metadata["file_hashes"]:
+                    old_hash = metadata["file_hashes"][filename]
+                    if old_hash != current_hash:
+                        files_changed.append(filename)
+                        print(f"File changed: {filename}")
+                        print(f"  Old hash: {old_hash}")
+                        print(f"  New hash: {current_hash}")
+                    else:
+                        print(f"No changes in {filename}")
+                else:
+                    # First time seeing this file
+                    files_changed.append(filename)
+                    print(f"New file detected: {filename}")
+            else:
+                print(f"Warning: {filename} not found at {src_path}")
+
+        # Only backup files that have changed
+        if files_changed:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            for filename in files_changed:
+                src_path = os.path.join(src_dir, filename)
+                if os.path.exists(src_path):
+                    base_name = filename.rsplit(".json", 1)[0]
+                    dst_path = os.path.join(backup_dir, f"{base_name}_{timestamp}.json")
+                    shutil.copy2(src_path, dst_path)
+                    print(f"Backed up {filename} to {dst_path}")
+            
+            # Update metadata with new hashes
+            metadata["file_hashes"] = current_hashes
+            metadata["last_backup_time"] = time.time()
+            save_backup_metadata(metadata)
+            print(f"Backup completed at {timestamp}")
+        else:
+            print("No changes detected since last backup, skipping...")
+        
+        return interval
+    except Exception as e:
+        print(f"Backup error: {e}")
+        return INTERVAL_FALLBACK
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--restore', help='Restore backup from timestamp like 20250407_120653')
