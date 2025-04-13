@@ -5,239 +5,20 @@ import json
 import os
 from datetime import datetime
 import uuid
-from collections import Counter
-from urllib.parse import urlparse
-import os
-import json
-import shutil
 import threading
 import time
-from datetime import datetime
 import argparse
 import hashlib
-import time
+from urllib.parse import urlparse
 
+from database_manager import db_manager, history_db, folders_db
+from backup_manager import backup_manager
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# File paths for storing data
-HISTORY_FILE = 'history.json'
-FOLDERS_FILE = 'folders.json'
-FREQUENCY_FILE = 'frequency.json'
-CONFIG_FILE = "backup_config.json"
-INTERVAL_FALLBACK = 3600
-BACKUP_METADATA_FILE = "backup_metadata.json"
-
-# Initialize data files if they don't exist
-def init_data_files():
-    if not os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, 'w') as f:
-            json.dump([], f)
-    
-    if not os.path.exists(FOLDERS_FILE):
-        with open(FOLDERS_FILE, 'w') as f:
-            json.dump([], f)
-            
-    if not os.path.exists(FREQUENCY_FILE):
-        with open(FREQUENCY_FILE, 'w') as f:
-            json.dump({}, f)
-
-init_data_files()
-
-# Helper functions to read/write data
-def read_history():
-    print(f"Attempting to read history from {HISTORY_FILE}")
-    try:
-        if os.path.exists(HISTORY_FILE):
-            file_size = os.path.getsize(HISTORY_FILE)
-            print(f"History file exists, size: {file_size} bytes")
-            
-            with open(HISTORY_FILE, 'r') as f:
-                content = f.read()
-                print(f"Read {len(content)} characters from file")
-                
-                if not content.strip():
-                    print("Warning: History file is empty")
-                    return []
-                
-                history = json.loads(content)
-                print(f"Parsed JSON, found {len(history)} items")
-                
-                for page in history:
-                    if 'timestamp' in page and isinstance(page['timestamp'], str):
-                        try:
-                            page['timestamp'] = datetime.fromisoformat(page['timestamp'].replace('Z', '+00:00'))
-                        except Exception as e:
-                            print(f"Error parsing timestamp {page['timestamp']}: {e}")
-                            # Keep the original string if parsing fails
-                return history
-        else:
-            print(f"History file not found at {HISTORY_FILE}")
-            return []
-    except json.JSONDecodeError as e:
-        print(f"JSON decode error in history file: {e}")
-        # Try to read the file content to see what might be wrong
-        try:
-            with open(HISTORY_FILE, 'r') as f:
-                print(f"First 200 characters: {f.read(200)}")
-        except:
-            pass
-        return []
-    except Exception as e:
-        print(f"Error reading history file: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-    
-def write_history(history):
-    """Write history data to file with atomic operations to prevent corruption"""
-    print(f"Starting write_history with {len(history)} items")
-    
-    # Convert datetime objects to strings for JSON serialization
-    serializable_history = []
-    for page in history:
-        page_copy = page.copy()
-        if 'timestamp' in page_copy and isinstance(page_copy['timestamp'], datetime):
-            page_copy['timestamp'] = page_copy['timestamp'].isoformat()
-        serializable_history.append(page_copy)
-    
-    print(f"Converted {len(serializable_history)} items for serialization")
-    
-    # Write to a temporary file first
-    temp_file = HISTORY_FILE + '.temp'
-    try:
-        print(f"Opening temporary file {temp_file} for writing")
-        with open(temp_file, 'w') as f:
-            print("Serializing history to JSON")
-            json_data = json.dumps(serializable_history)
-            print(f"JSON serialized, length: {len(json_data)} characters")
-            print(f"First 100 chars: {json_data[:100]}")
-            print(f"Last 100 chars: {json_data[-100:]}")
-            f.write(json_data)
-            print(f"Data written to temporary file")
-        
-        # Verify the temporary file before replacing
-        print(f"Verifying temporary file content")
-        try:
-            with open(temp_file, 'r') as f:
-                content = f.read()
-                print(f"Read {len(content)} characters from temp file")
-                # Try to parse to ensure valid JSON
-                json.loads(content)
-                print("Verification successful - valid JSON")
-        except Exception as e:
-            print(f"Verification failed: {e}")
-            raise
-        
-        # Use os.replace for atomic file operation
-        # This ensures the file is either completely written or not changed at all
-        print(f"Replacing {HISTORY_FILE} with {temp_file}")
-        import os
-        os.replace(temp_file, HISTORY_FILE)
-        
-        # Final verification of the written file
-        print(f"Verifying final file content")
-        try:
-            with open(HISTORY_FILE, 'r') as f:
-                content = f.read()
-                print(f"Read {len(content)} characters from history file")
-                json.loads(content)
-                print("Final verification successful - valid JSON")
-        except Exception as e:
-            print(f"Final verification failed: {e}")
-            # Not raising here as the operation is technically complete
-        
-        print("Write operation completed successfully")
-        return True
-    except Exception as e:
-        print(f"Error writing history file: {e}")
-        import traceback
-        traceback.print_exc()
-        # Clean up the temp file if something went wrong
-        try:
-            if os.path.exists(temp_file):
-                print(f"Cleaning up temporary file {temp_file}")
-                os.remove(temp_file)
-        except Exception as cleanup_error:
-            print(f"Error cleaning up temp file: {cleanup_error}")
-        return False
-        
-def read_folders():
-    with open(FOLDERS_FILE, 'r') as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return []
-
-def write_folders(folders):
-    """Write folders data to file with atomic operations to prevent corruption"""
-    # Convert datetime objects to strings for JSON serialization
-    serializable_folders = []
-    for folder in folders:
-        folder_copy = folder.copy()
-        pages = []
-        for page in folder_copy['pages']:
-            page_copy = page.copy()
-            if 'timestamp' in page_copy and isinstance(page_copy['timestamp'], datetime):
-                page_copy['timestamp'] = page_copy['timestamp'].isoformat()
-            pages.append(page_copy)
-        folder_copy['pages'] = pages
-        serializable_folders.append(folder_copy)
-    
-    # Write to a temporary file first
-    temp_file = FOLDERS_FILE + '.temp'
-    try:
-        with open(temp_file, 'w') as f:
-            json.dump(serializable_folders, f)
-        
-        # Use os.replace for atomic file operation
-        import os
-        os.replace(temp_file, FOLDERS_FILE)
-        return True
-    except Exception as e:
-        print(f"Error writing folders file: {e}")
-        # Clean up the temp file if something went wrong
-        try:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-        except:
-            pass
-        return False
-    
-def read_frequency():
-    with open(FREQUENCY_FILE, 'r') as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return {}
-
-def write_frequency(frequency):
-    """Write frequency data to file with atomic operations to prevent corruption"""
-    # Write to a temporary file first
-    temp_file = FREQUENCY_FILE + '.temp'
-    try:
-        with open(temp_file, 'w') as f:
-            json.dump(frequency, f)
-        
-        # Use os.replace for atomic file operation
-        import os
-        os.replace(temp_file, FREQUENCY_FILE)
-        return True
-    except Exception as e:
-        print(f"Error writing frequency file: {e}")
-        # Clean up the temp file if something went wrong
-        try:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-        except:
-            pass
-        return False
-    
-def get_domain(url):
-    """Extract domain from URL"""
-    parsed_url = urlparse(url)
-    return parsed_url.netloc
+# Initialize database
+db_manager.initialize_db()
 
 @app.after_request
 def add_header(response):
@@ -250,15 +31,7 @@ def add_header(response):
 # Routes for history
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    history = read_history()
-    print(f"Read {len(history)} items from history.json")
-    # Print first item to debug
-    if history:
-        print(f"First item sample: {history[0]}")
-    # Convert datetime objects to strings for JSON serialization
-    for page in history:
-        if 'timestamp' in page and isinstance(page['timestamp'], datetime):
-            page['timestamp'] = page['timestamp'].isoformat()
+    history = history_db.get_all()
     return jsonify(history)
 
 @app.route('/api/history', methods=['POST'])
@@ -272,65 +45,21 @@ def add_history():
         page['timestamp'] = datetime.now().isoformat()
 
     if 'favicon' in page:
-            del page['favicon']
-            
-    # Update frequency counter
-    frequency = read_frequency()
-    url = page['url']
-    domain = get_domain(url)
+        del page['favicon']
     
-    if url in frequency:
-        frequency[url]['count'] += 1
-        if 'title' in page:
-            frequency[url]['title'] = page['title']
-        # if 'favicon' in page:
-        #     frequency[url]['favicon'] = page['favicon']
-    else:
-        frequency[url] = {
-            'count': 1,
-            'title': page.get('title', url),
-            # 'favicon': page.get('favicon', ''),
-            'domain': domain
-        }
-    
-    write_frequency(frequency)
-    
-    # Add to history
-    history = read_history()
-    history.insert(0, page)  # Add to the beginning of history
-    write_history(history)
+    # Add to history database
+    history_db.add(page)
     return jsonify(page), 201
 
 @app.route('/api/history/frequent', methods=['GET'])
 def get_frequent_pages():
-    frequency = read_frequency()
-    # Convert to list of pages
-    frequent_pages = []
-    
-    for url, data in frequency.items():
-        if data.get('title', url) != 'WebHistoryFrontend':
-            frequent_pages.append({
-                'id': str(uuid.uuid4()),  # Generate a new ID for this view
-                'url': url,
-                'title': data.get('title', url),
-                # 'favicon': data.get('favicon', ''),
-                'visitCount': data.get('count', 0),
-                'timestamp': datetime.now().isoformat()  # Use current time as timestamp
-        })
-    
-    # Sort by visit count, descending
-    frequent_pages.sort(key=lambda x: x['visitCount'], reverse=True)
+    frequent_pages = history_db.get_frequent()
     return jsonify(frequent_pages)
 
 # Routes for folders
 @app.route('/api/folders', methods=['GET'])
 def get_folders():
-    folders = read_folders()
-    # Convert datetime objects to strings for JSON serialization
-    for folder in folders:
-        for page in folder['pages']:
-            if 'timestamp' in page and isinstance(page['timestamp'], datetime):
-                page['timestamp'] = page['timestamp'].isoformat()
+    folders = folders_db.get_all()
     return jsonify(folders)
 
 @app.route('/api/folders', methods=['POST'])
@@ -341,16 +70,12 @@ def create_folder():
     if 'pages' not in folder:
         folder['pages'] = []
     
-    folders = read_folders()
-    folders.append(folder)
-    write_folders(folders)
-    return jsonify(folder), 201
+    created_folder = folders_db.create(folder)
+    return jsonify(created_folder), 201
 
 @app.route('/api/folders/<folder_id>', methods=['DELETE'])
 def delete_folder(folder_id):
-    folders = read_folders()
-    folders = [f for f in folders if f['id'] != folder_id]
-    write_folders(folders)
+    folders_db.delete(folder_id)
     return '', 204
 
 @app.route('/api/folders/<folder_id>/pages', methods=['POST'])
@@ -361,110 +86,35 @@ def add_page_to_folder(folder_id):
     if 'timestamp' not in page:
         page['timestamp'] = datetime.now().isoformat()
     
-    # Check if this URL already exists in the folder
-    folders = read_folders()
-    target_folder = None
-    for folder in folders:
-        if folder['id'] == folder_id:
-            target_folder = folder
-            break
+    success, result = folders_db.add_page(folder_id, page)
     
-    if target_folder:
-        # Check if URL already exists
-        url_exists = any(p['url'] == page['url'] for p in target_folder['pages'])
-        
-        if not url_exists:
-            target_folder['pages'].append(page)
-            write_folders(folders)
-            return jsonify(page), 201
-        else:
-            return jsonify({"error": "URL already exists in folder"}), 409
-    
-    return jsonify({"error": "Folder not found"}), 404
+    if success:
+        return jsonify(result), 201
+    else:
+        return jsonify({"error": result}), 409
 
 @app.route('/api/folders/<folder_id>/pages/<page_id>', methods=['POST'])
 def move_page_to_folder(folder_id, page_id):
-    # Find page in history or other folders
-    page = None
+    # Source folder is null in this case (could be from history)
+    success, result = folders_db.move_page(None, page_id, folder_id)
     
-    # Check history
-    history = read_history()
-    new_history = []
-    for p in history:
-        if p['id'] == page_id:
-            page = p
-        else:
-            new_history.append(p)
-    
-    # If not found in history, check folders
-    if not page:
-        folders = read_folders()
-        source_folder = None
-        for folder in folders:
-            new_pages = []
-            for p in folder['pages']:
-                if p['id'] == page_id:
-                    page = p
-                    source_folder = folder
-                else:
-                    new_pages.append(p)
-            if source_folder:
-                source_folder['pages'] = new_pages
-                break
-    
-    # Add to target folder if found and not duplicate
-    if page:
-        folders = read_folders()
-        target_folder = None
-        for folder in folders:
-            if folder['id'] == folder_id:
-                target_folder = folder
-                break
-        
-        if target_folder:
-            # Check if URL already exists in target folder
-            url_exists = any(p['url'] == page['url'] for p in target_folder['pages'])
-            
-            if not url_exists:
-                target_folder['pages'].append(page)
-                
-                # Update history if page was from there
-                if page in history:
-                    write_history(new_history)
-                
-                write_folders(folders)
-                return jsonify(page), 200
-            else:
-                return jsonify({"error": "URL already exists in folder"}), 409
-    
-    return jsonify({"error": "Page not found"}), 404
+    if success:
+        return jsonify(result), 200
+    else:
+        return jsonify({"error": result}), 409 if "already exists" in result else 404
 
 @app.route('/api/folders/<folder_id>/remove-page', methods=['POST'])
 def alt_remove_page_from_folder(folder_id):
     data = request.json
     page_id = data.get('pageId')
     
-    folders = read_folders()
-    for folder in folders:
-        if folder['id'] == folder_id:
-            folder['pages'] = [p for p in folder['pages'] if p['id'] != page_id]
-            break
-    
-    write_folders(folders)
+    folders_db.remove_page(folder_id, page_id)
     return '', 204
 
 @app.route('/api/folders/<folder_id>/pages/<page_id>', methods=['DELETE'])
 def remove_page_from_folder(folder_id, page_id):
-    folders = read_folders()
-    for folder in folders:
-        if folder['id'] == folder_id:
-            folder['pages'] = [p for p in folder['pages'] if p['id'] != page_id]
-            break
-    
-    write_folders(folders)
+    folders_db.remove_page(folder_id, page_id)
     return '', 204
-
-# Add these new routes to your existing app.py file
 
 @app.route('/api/folders/<folder_id>/rename', methods=['POST'])
 def rename_folder(folder_id):
@@ -478,22 +128,12 @@ def rename_folder(folder_id):
     if not new_name:
         return jsonify({"error": "Folder name cannot be empty"}), 400
     
-    # Get current folders
-    folders = read_folders()
+    success, result = folders_db.rename(folder_id, new_name)
     
-    # Check for name collision
-    for folder in folders:
-        if folder['id'] != folder_id and folder['name'].lower() == new_name.lower():
-            return jsonify({"error": "A folder with this name already exists"}), 409
-    
-    # Update the folder name
-    for folder in folders:
-        if folder['id'] == folder_id:
-            folder['name'] = new_name
-            write_folders(folders)
-            return jsonify({"success": True, "name": new_name}), 200
-    
-    return jsonify({"error": "Folder not found"}), 404
+    if success:
+        return jsonify({"success": True, "name": new_name}), 200
+    else:
+        return jsonify({"error": result}), 409
 
 @app.route('/api/folders/reorder', methods=['POST'])
 def reorder_folders():
@@ -502,79 +142,21 @@ def reorder_folders():
     """
     updated_folders = request.json
     
-    # Read current folders to preserve any data not in the request
-    current_folders = read_folders()
+    success = folders_db.update_order(updated_folders)
     
-    # Create a map of folder IDs to their current data
-    folder_map = {folder['id']: folder for folder in current_folders}
-    
-    # Update with new order and collapse state
-    reordered_folders = []
-    for folder in updated_folders:
-        folder_id = folder['id']
-        if folder_id in folder_map:
-            # Preserve existing folder data but update order and collapse state
-            updated_folder = folder_map[folder_id]
-            # Add or update isCollapsed property
-            updated_folder['isCollapsed'] = folder.get('isCollapsed', False)
-            reordered_folders.append(updated_folder)
-    
-    # Save the reordered folders
-    write_folders(reordered_folders)
-    
-    return jsonify({"success": True}), 200
+    return jsonify({"success": success}), 200
 
 @app.route('/api/folders/<folder_id>/pages/reorder', methods=['POST'])
 def reorder_pages_in_folder(folder_id):
-    updated_pages = request.json  # List of page objects or page IDs
+    updated_pages = request.json
     
-    folders = read_folders()
-    for folder in folders:
-        if folder['id'] == folder_id:
-            # Replace the pages in the folder with the reordered list
-            folder['pages'] = updated_pages
-            write_folders(folders)
-            return jsonify({"success": True}), 200
+    success = folders_db.update_page_order(folder_id, updated_pages)
     
-    return jsonify({"error": "Folder not found"}), 404
-
-def load_backup_config():
-    with open(CONFIG_FILE, "r") as f:
-        return json.load(f)
-
-def backup_files_periodically():
-    while True:
-        interval = perform_backup()
-        time.sleep(interval)
-
-def start_backup_thread():
-    thread = threading.Thread(target=backup_files_periodically, daemon=True)
-    thread.start()
-
-def restore_backup(timestamp):
-    config = load_backup_config()
-    backup_dir = os.path.abspath(config.get("backup_directory", "./backups"))
-    files = {
-        FOLDERS_FILE: f"folders_{timestamp}.json",
-        HISTORY_FILE: f"history_{timestamp}.json",
-        FREQUENCY_FILE: f"frequency_{timestamp}.json"
-    }
-
-    try:
-        for dest_file, backup_file in files.items():
-            backup_path = os.path.join(backup_dir, backup_file)
-            if os.path.exists(backup_path):
-                shutil.copy2(backup_path, dest_file)
-                print(f"Restored {dest_file} from {backup_file}")
-            else:
-                print(f"Backup not found: {backup_file}")
-        print("Restore complete.")
-    except Exception as e:
-        print(f"Restore failed: {e}")
+    return jsonify({"success": success}), 200
 
 @app.route('/api/export-bookmarks', methods=['GET'])
 def export_bookmarks():
-    folders = read_folders()
+    folders = folders_db.get_all()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     top_folder_name = f"WebHistoryManager Export - {timestamp}"
 
@@ -607,107 +189,119 @@ def export_bookmarks():
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Disposition': 'attachment; filename="webhistory_bookmarks.html"'
     }
+
+@app.route('/api/migrate', methods=['POST'])
+def migrate_data():
+    """Endpoint to trigger migration from JSON to SQLite"""
+    success = db_manager.migrate_from_json()
     
-def calculate_file_hash(filepath):
-    """Calculate SHA-256 hash of a file to detect changes"""
-    if not os.path.exists(filepath):
-        return None
-    
-    hasher = hashlib.sha256()
-    with open(filepath, 'rb') as f:
-        buf = f.read(65536)  # Read in 64k chunks
-        while len(buf) > 0:
-            hasher.update(buf)
-            buf = f.read(65536)
-    return hasher.hexdigest()
+    if success:
+        return jsonify({"success": True, "message": "Migration completed successfully"}), 200
+    else:
+        return jsonify({"success": False, "message": "Migration failed. Check server logs for details."}), 500
 
-def get_backup_metadata():
-    """Get information about the last backup"""
-    if os.path.exists(BACKUP_METADATA_FILE):
-        try:
-            with open(BACKUP_METADATA_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            pass
-    return {
-        "last_backup_time": 0,
-        "file_hashes": {}
-    }
-
-def save_backup_metadata(metadata):
-    """Save information about the current backup"""
-    with open(BACKUP_METADATA_FILE, 'w') as f:
-        json.dump(metadata, f)
-
-def perform_backup():
-    print("Checking for changes since last backup...")
+# Backup management endpoints
+@app.route('/api/backup/create', methods=['POST'])
+def create_backup():
+    """Manually create a backup"""
     try:
-        config = load_backup_config()
-        interval = config.get("backup_interval_seconds", INTERVAL_FALLBACK)
-        src_dir = os.path.abspath(config.get("data_directory", "."))
-        backup_dir = os.path.abspath(config.get("backup_directory", "."))
-        os.makedirs(backup_dir, exist_ok=True)
-
-        # Get last backup info
-        metadata = get_backup_metadata()
-        current_hashes = {}
-        files_changed = []  # Track which files changed
-
-        # Calculate current hash for each file and compare with stored hash
-        for filename in [FOLDERS_FILE, HISTORY_FILE, FREQUENCY_FILE]:
-            src_path = os.path.join(src_dir, filename)
-            if os.path.exists(src_path):
-                current_hash = calculate_file_hash(src_path)
-                current_hashes[filename] = current_hash
-                
-                # Check if file exists in metadata and if hash has changed
-                if filename in metadata["file_hashes"]:
-                    old_hash = metadata["file_hashes"][filename]
-                    if old_hash != current_hash:
-                        files_changed.append(filename)
-                        print(f"File changed: {filename}")
-                        print(f"  Old hash: {old_hash}")
-                        print(f"  New hash: {current_hash}")
-                    else:
-                        print(f"No changes in {filename}")
-                else:
-                    # First time seeing this file
-                    files_changed.append(filename)
-                    print(f"New file detected: {filename}")
-            else:
-                print(f"Warning: {filename} not found at {src_path}")
-
-        # Only backup files that have changed
-        if files_changed:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            for filename in files_changed:
-                src_path = os.path.join(src_dir, filename)
-                if os.path.exists(src_path):
-                    base_name = filename.rsplit(".json", 1)[0]
-                    dst_path = os.path.join(backup_dir, f"{base_name}_{timestamp}.json")
-                    shutil.copy2(src_path, dst_path)
-                    print(f"Backed up {filename} to {dst_path}")
-            
-            # Update metadata with new hashes
-            metadata["file_hashes"] = current_hashes
-            metadata["last_backup_time"] = time.time()
-            save_backup_metadata(metadata)
-            print(f"Backup completed at {timestamp}")
-        else:
-            print("No changes detected since last backup, skipping...")
-        
-        return interval
+        backup_manager.perform_backup()
+        return jsonify({"success": True, "message": "Backup created successfully"}), 200
     except Exception as e:
-        print(f"Backup error: {e}")
-        return INTERVAL_FALLBACK
+        return jsonify({"success": False, "message": f"Backup failed: {str(e)}"}), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+def list_backups():
+    """List available backups"""
+    try:
+        config = backup_manager.load_backup_config()
+        backup_dir = os.path.abspath(config.get("backup_directory", "./backups"))
+        
+        if not os.path.exists(backup_dir):
+            return jsonify({"backups": []}), 200
+        
+        backups = []
+        for filename in os.listdir(backup_dir):
+            if filename.startswith("web_history_") and filename.endswith(".db"):
+                # Extract timestamp from filename
+                timestamp = filename.replace("web_history_", "").replace(".db", "")
+                
+                # Get file size and creation time
+                filepath = os.path.join(backup_dir, filename)
+                size = os.path.getsize(filepath)
+                created = os.path.getctime(filepath)
+                
+                backups.append({
+                    "timestamp": timestamp,
+                    "size": size,
+                    "created": datetime.fromtimestamp(created).isoformat(),
+                    "filename": filename
+                })
+        
+        # Sort by timestamp (newest first)
+        backups.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return jsonify({"backups": backups}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error listing backups: {str(e)}"}), 500
+
+@app.route('/api/backup/restore/<timestamp>', methods=['POST'])
+def restore_backup_api(timestamp):
+    """Restore database from a backup"""
+    try:
+        success = backup_manager.restore_backup(timestamp)
+        if success:
+            return jsonify({"success": True, "message": "Database restored successfully"}), 200
+        else:
+            return jsonify({"success": False, "message": "Restore failed"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Restore error: {str(e)}"}), 500
+
+@app.route('/api/backup/config', methods=['GET'])
+def get_backup_config():
+    """Get backup configuration"""
+    config = backup_manager.load_backup_config()
+    return jsonify(config), 200
+
+@app.route('/api/backup/config', methods=['POST'])
+def update_backup_config():
+    """Update backup configuration"""
+    try:
+        new_config = request.json
+        
+        # Validate configuration
+        if "backup_interval_seconds" in new_config:
+            interval = int(new_config["backup_interval_seconds"])
+            if interval < 300:  # Minimum 5 minutes
+                return jsonify({"success": False, "message": "Backup interval must be at least 300 seconds (5 minutes)"}), 400
+        
+        # Load current config and update with new values
+        config = backup_manager.load_backup_config()
+        config.update(new_config)
+        
+        # Save updated config using backup_manager
+        backup_manager.save_config(config)
+        
+        return jsonify({"success": True, "message": "Backup configuration updated"}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error updating config: {str(e)}"}), 500
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--migrate', action='store_true', help='Migrate data from JSON files to SQLite database')
     parser.add_argument('--restore', help='Restore backup from timestamp like 20250407_120653')
     args = parser.parse_args()
 
-    if args.restore:
-        restore_backup(args.restore)
+    if args.migrate:
+        db_manager.initialize_db()
+        success = db_manager.migrate_from_json()
+        print(f"Migration {'completed successfully' if success else 'failed'}")
+    elif args.restore:
+        success = backup_manager.restore_backup(args.restore)
+        print(f"Restore {'completed successfully' if success else 'failed'}")
     else:
-        start_backup_thread()
+        # Start backup thread
+        backup_manager.start_backup_thread()
+        
+        # Start the application
         app.run(debug=True)

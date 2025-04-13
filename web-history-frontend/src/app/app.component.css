@@ -389,3 +389,71 @@ button:hover {
   gap: 10px; /* Optional, for breathing room */
   margin-bottom: 10px;
 }
+
+.page-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  margin-bottom: 3px;
+  background-color: white;
+  border-radius: 3px;
+  border: 1px solid #ddd;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  position: relative;
+}
+
+.drag-handle {
+  cursor: move;
+  width: 15px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  color: #888;
+}
+
+.drag-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.page-item a {
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.trash-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: #666;
+  padding: 0;
+}
+
+.trash-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #d9534f; /* Red color on hover */
+}
+
+.trash-icon {
+  display: inline-block;
+  font-size: 14px;
+}

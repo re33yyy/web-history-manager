@@ -70,10 +70,20 @@
             <div *ngIf="!folder.isCollapsed" id="folder-{{folder.id}}" cdkDropList [cdkDropListData]="folder.pages"
               [cdkDropListConnectedTo]="connectedDropLists" (cdkDropListDropped)="onDrop($event)" class="folder-pages">
               <div *ngFor="let page of folder.pages" cdkDrag class="page-item">
-                <!-- <img [src]="page.favicon" alt="" class="favicon"> -->
-                <a [href]="page.url" target="_blank" [title]="formatTooltip(page)">{{ extractDomain(page.url) }}</a>
+                <div class="drag-handle" cdkDragHandle>
+                  <span class="drag-icon">⋮⋮</span>
+                </div>
+                <a [href]="page.url" target="_blank" [title]="formatTooltip(page)" (click)="$event.stopPropagation()">
+                  {{ extractDomain(page.url) }}
+                </a>
+                <div class="page-actions">
+                  <button class="trash-btn"
+                    (click)="removePage(folder.id, page.page_id); $event.stopPropagation(); $event.preventDefault();"
+                    title="Remove page">
+                    <span class="trash-icon">🗑️</span>
+                  </button>
+                </div>
               </div>
-
               <div *ngIf="folder.pages.length === 0" class="empty-message">
                 Drag pages here or add current page
               </div>
