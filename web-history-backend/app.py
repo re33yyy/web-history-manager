@@ -92,6 +92,8 @@ def read_history():
     
 def write_history(history):
     """Write history data to file with atomic operations to prevent corruption"""
+    print(f"Starting write_history with {len(history)} items")
+    
     # Convert datetime objects to strings for JSON serialization
     serializable_history = []
     for page in history:
@@ -100,27 +102,67 @@ def write_history(history):
             page_copy['timestamp'] = page_copy['timestamp'].isoformat()
         serializable_history.append(page_copy)
     
+    print(f"Converted {len(serializable_history)} items for serialization")
+    
     # Write to a temporary file first
     temp_file = HISTORY_FILE + '.temp'
     try:
+        print(f"Opening temporary file {temp_file} for writing")
         with open(temp_file, 'w') as f:
-            json.dump(serializable_history, f)
+            print("Serializing history to JSON")
+            json_data = json.dumps(serializable_history)
+            print(f"JSON serialized, length: {len(json_data)} characters")
+            print(f"First 100 chars: {json_data[:100]}")
+            print(f"Last 100 chars: {json_data[-100:]}")
+            f.write(json_data)
+            print(f"Data written to temporary file")
+        
+        # Verify the temporary file before replacing
+        print(f"Verifying temporary file content")
+        try:
+            with open(temp_file, 'r') as f:
+                content = f.read()
+                print(f"Read {len(content)} characters from temp file")
+                # Try to parse to ensure valid JSON
+                json.loads(content)
+                print("Verification successful - valid JSON")
+        except Exception as e:
+            print(f"Verification failed: {e}")
+            raise
         
         # Use os.replace for atomic file operation
         # This ensures the file is either completely written or not changed at all
+        print(f"Replacing {HISTORY_FILE} with {temp_file}")
         import os
         os.replace(temp_file, HISTORY_FILE)
+        
+        # Final verification of the written file
+        print(f"Verifying final file content")
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                content = f.read()
+                print(f"Read {len(content)} characters from history file")
+                json.loads(content)
+                print("Final verification successful - valid JSON")
+        except Exception as e:
+            print(f"Final verification failed: {e}")
+            # Not raising here as the operation is technically complete
+        
+        print("Write operation completed successfully")
         return True
     except Exception as e:
         print(f"Error writing history file: {e}")
+        import traceback
+        traceback.print_exc()
         # Clean up the temp file if something went wrong
         try:
             if os.path.exists(temp_file):
+                print(f"Cleaning up temporary file {temp_file}")
                 os.remove(temp_file)
-        except:
-            pass
+        except Exception as cleanup_error:
+            print(f"Error cleaning up temp file: {cleanup_error}")
         return False
-    
+        
 def read_folders():
     with open(FOLDERS_FILE, 'r') as f:
         try:
