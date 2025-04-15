@@ -101,6 +101,9 @@
         <button class="tab-button" [class.active]="activeTab === 'frequent'" (click)="setActiveTab('frequent')">
           Most Frequent
         </button>
+        <button class="tab-button" [class.active]="activeTab === 'dashboard'" (click)="setActiveTab('dashboard')">
+          Dashboard
+        </button>
       </div>
 
       <!-- History Tab -->
@@ -128,6 +131,11 @@
           </div>
         </div>
       </div>
+      <!-- Dashboard Tab - New -->
+      <div *ngIf="activeTab === 'dashboard'" class="tab-content">
+        <app-dashboard></app-dashboard>
+      </div>
+
     </div>
   </div>
 </div>

@@ -36,7 +36,39 @@ class DatabaseManager:
                 schema = f.read()
                 conn.executescript(schema)
                 conn.commit()
-        
+        # else:
+        #     # Add crawler tables to existing database if they don't exist
+        #     # remove this else clause eventually
+        #     conn.execute("""
+        #     CREATE TABLE IF NOT EXISTS crawled_sites (
+        #         id TEXT PRIMARY KEY,
+        #         name TEXT NOT NULL,
+        #         url TEXT NOT NULL,
+        #         last_crawled TIMESTAMP,
+        #         config TEXT
+        #     )
+        #     """)
+            
+        #     conn.execute("""
+        #     CREATE TABLE IF NOT EXISTS crawled_content (
+        #         id TEXT PRIMARY KEY,
+        #         site_id TEXT NOT NULL,
+        #         title TEXT NOT NULL,
+        #         url TEXT NOT NULL,
+        #         summary TEXT,
+        #         published_date TEXT,
+        #         crawled_date TIMESTAMP,
+        #         is_read BOOLEAN DEFAULT FALSE,
+        #         FOREIGN KEY (site_id) REFERENCES crawled_sites(id) ON DELETE CASCADE
+        #     )
+        #     """)
+            
+        #     # Add indexes if they don't exist
+        #     conn.execute("CREATE INDEX IF NOT EXISTS idx_content_site ON crawled_content(site_id)")
+        #     conn.execute("CREATE INDEX IF NOT EXISTS idx_content_read ON crawled_content(is_read)")
+        #     conn.execute("CREATE INDEX IF NOT EXISTS idx_content_date ON crawled_content(crawled_date)")
+            
+            conn.commit()
         conn.close()
         print(f"Database initialized: {self.db_file}")
     

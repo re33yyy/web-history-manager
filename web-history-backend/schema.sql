@@ -43,3 +43,30 @@ CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
 CREATE INDEX IF NOT EXISTS idx_history_url ON history(url);
 CREATE INDEX IF NOT EXISTS idx_folder_pages_url ON folder_pages(url);
 CREATE INDEX IF NOT EXISTS idx_frequency_count ON frequency(count);
+
+-- Table for storing sites to crawl
+CREATE TABLE IF NOT EXISTS crawled_sites (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    last_crawled TIMESTAMP,
+    config TEXT
+);
+
+-- Table for storing crawled content
+CREATE TABLE IF NOT EXISTS crawled_content (
+    id TEXT PRIMARY KEY,
+    site_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    summary TEXT,
+    published_date TEXT,
+    crawled_date TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (site_id) REFERENCES crawled_sites(id) ON DELETE CASCADE
+);
+
+-- Indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_content_site ON crawled_content(site_id);
+CREATE INDEX IF NOT EXISTS idx_content_read ON crawled_content(is_read);
+CREATE INDEX IF NOT EXISTS idx_content_date ON crawled_content(crawled_date);

@@ -5,6 +5,7 @@ import { NgIf, NgFor } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { DashboardComponent } from './dashboard/dashboard.component';
 
 interface WebPage {
   page_id: string;
@@ -28,7 +29,7 @@ interface Folder {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
   standalone: true,
-  imports: [NgIf, NgFor, CommonModule, FormsModule, DragDropModule ]
+  imports: [NgIf, NgFor, CommonModule, FormsModule, DragDropModule, DashboardComponent ]
 })
 export class AppComponent implements OnInit {
   history: WebPage[] = [];
@@ -37,7 +38,7 @@ export class AppComponent implements OnInit {
   newFolderName: string = '';
   isCreatingFolder: boolean = false;
   currentUrl: string = '';
-  activeTab: 'history' | 'frequent' = 'history';
+  activeTab: 'history' | 'frequent' | 'dashboard' = 'history';
   editingFolderName: string = '';
   
   constructor(private http: HttpClient) {}
@@ -425,7 +426,7 @@ export class AppComponent implements OnInit {
     }
   }
   
-  setActiveTab(tab: 'history' | 'frequent') {
+  setActiveTab(tab: 'history' | 'frequent' | 'dashboard') {
     this.activeTab = tab;
   }
 

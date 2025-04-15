@@ -1,0 +1,218 @@
+.dashboard {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.refresh-btn:hover {
+  background-color: #e9ecef;
+}
+
+.refresh-icon {
+  display: inline-block;
+  font-size: 14px;
+}
+
+.loading, .error-message {
+  padding: 20px;
+  text-align: center;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+}
+
+.site-section {
+  margin-bottom: 20px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.site-header:hover {
+  background-color: #e9ecef;
+}
+
+.site-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-title h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.collapse-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.site-actions {
+  display: flex;
+  align-items: center;
+}
+
+.visit-site {
+  color: #007bff;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.visit-site:hover {
+  background-color: rgba(0, 123, 255, 0.1);
+  text-decoration: underline;
+}
+
+.article-list {
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.article-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.article-item:last-child {
+  border-bottom: none;
+}
+
+.article-item.read {
+  opacity: 0.6;  /* Make read articles more faded */
+  background-color: #f9f9f9;  /* Light gray background for read articles */
+}
+
+.article-item.read .article-title a {
+  color: #777;  /* Darker gray text for read articles */
+  font-weight: normal;  /* Remove bold from read articles */
+}
+
+/* Add a visual indicator for read articles */
+.article-item.read::before {
+  content: "✓";  /* Checkmark */
+  color: #4CAF50;  /* Green color */
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.article-title {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.article-title a {
+  color: #333;
+  text-decoration: none;
+}
+
+.article-title a:hover {
+  color: #007bff;
+}
+
+.article-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.read-indicator {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.article-summary {
+  margin: 0;
+  font-size: 14px;
+  color: #495057;
+  line-height: 1.5;
+}
+
+.empty-message, .empty-dashboard {
+  padding: 20px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.empty-dashboard {
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 40px 20px;
+}
+
+.crawl-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.crawl-btn:hover {
+  background-color: #0069d9;
+}

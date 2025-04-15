@@ -10,12 +10,16 @@ import time
 import argparse
 import hashlib
 from urllib.parse import urlparse
+import sqlite3
 
 from database_manager import db_manager, history_db, folders_db
 from backup_manager import backup_manager
+from unified_crawler import UnifiedCrawler, SITE_CONFIGS
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+crawler = UnifiedCrawler()
 
 # Initialize database
 db_manager.initialize_db()
@@ -285,7 +289,164 @@ def update_backup_config():
         return jsonify({"success": True, "message": "Backup configuration updated"}), 200
     except Exception as e:
         return jsonify({"success": False, "message": f"Error updating config: {str(e)}"}), 500
+
+@app.route('/api/dashboard', methods=['GET'])
+def get_dashboard():
+    """Get dashboard data with content from all crawled sites"""
+    try:
+        dashboard_data = crawler.get_dashboard_data()
+        return jsonify(dashboard_data), 200
+    except Exception as e:
+        print(f"Error retrieving dashboard data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error retrieving dashboard data: {str(e)}"}), 500
+
+@app.route('/api/sites', methods=['GET'])
+def get_sites():
+    """Get list of registered sites"""
+    try:
+        with sqlite3.connect('web_history.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT id, name, url, last_crawled FROM crawled_sites ORDER BY name")
+            sites = [dict(row) for row in cursor]
+            return jsonify(sites), 200
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving sites: {str(e)}"}), 500
+
+@app.route('/api/sites', methods=['POST'])
+def add_site():
+    """Add a new site to be crawled"""
+    try:
+        site_config = request.json
+        if not site_config or not site_config.get('url') or not site_config.get('name'):
+            return jsonify({"error": "Missing required fields (name, url)"}), 400
+        
+        success = crawler.register_site(site_config)
+        if success:
+            return jsonify({"success": True, "message": f"Site {site_config['name']} registered"}), 201
+        else:
+            return jsonify({"error": "Failed to register site"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Error adding site: {str(e)}"}), 500
+
+@app.route('/api/sites/<site_id>', methods=['DELETE'])
+def delete_site(site_id):
+    """Delete a site and its articles"""
+    try:
+        with sqlite3.connect('web_history.db') as conn:
+            # First delete related articles
+            conn.execute("DELETE FROM crawled_content WHERE site_id = ?", (site_id,))
+            # Then delete the site
+            conn.execute("DELETE FROM crawled_sites WHERE id = ?", (site_id,))
+            return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": f"Error deleting site: {str(e)}"}), 500
+        
+@app.route('/api/sites', methods=['GET'])
+def get_crawled_sites():
+    """Get list of sites being crawled"""
+    try:
+        with sqlite3.connect('web_history.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT id, name, url, last_crawled FROM crawled_sites ORDER BY name")
+            sites = [dict(row) for row in cursor]
+            return jsonify(sites), 200
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving sites: {str(e)}"}), 500
+
+@app.route('/api/sites/<site_id>/articles', methods=['GET'])
+def get_site_articles(site_id):
+    """Get articles for a specific site"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        
+        with sqlite3.connect('web_history.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """
+                SELECT * FROM crawled_content 
+                WHERE site_id = ? 
+                ORDER BY crawled_date DESC 
+                LIMIT ?
+                """,
+                (site_id, limit)
+            )
+            articles = [dict(row) for row in cursor]
+            return jsonify(articles), 200
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving articles: {str(e)}"}), 500
+
+@app.route('/api/crawl/trigger', methods=['POST'])
+def trigger_crawl():
+    """Manually trigger a crawl of all sites"""
+    try:
+        # Register any unregistered sites first
+        for config in SITE_CONFIGS:
+            crawler.register_site(config)
+        
+        # Start crawling in a separate thread to not block the response
+        import threading
+        thread = threading.Thread(target=crawler.crawl_all_sites)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Crawl started in background"
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Error triggering crawl: {str(e)}"}), 500
     
+@app.route('/api/crawl/site/<site_id>', methods=['POST'])
+def crawl_site(site_id):
+    """Crawl a specific site"""
+    try:
+        with sqlite3.connect('web_history.db') as conn:
+            cursor = conn.execute(
+                "SELECT id, name, url, config FROM crawled_sites WHERE id = ?",
+                (site_id,)
+            )
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({"error": f"Site {site_id} not found"}), 404
+            
+            site_id, name, url, config_json = row
+            config = json.loads(config_json)
+            
+            # Start crawling in a separate thread
+            import threading
+            thread = threading.Thread(target=crawler.crawl_site, args=(site_id, config))
+            thread.daemon = True
+            thread.start()
+            
+            return jsonify({
+                "success": True, 
+                "message": f"Crawling {name} in background"
+            }), 200
+    except Exception as e:
+        return jsonify({"error": f"Error crawling site: {str(e)}"}), 500
+        
+@app.route('/api/articles/<article_id>/mark-read', methods=['POST'])
+def mark_article_read(article_id):
+    """Mark an article as read"""
+    try:
+        print(f"Attempting to mark article {article_id} as read")
+        with sqlite3.connect('web_history.db') as conn:
+            result = conn.execute(
+                "UPDATE crawled_content SET is_read = 1 WHERE id = ?",
+                (article_id,)
+            )
+            print(f"Rows affected: {result.rowcount}")
+            conn.commit()
+            return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"Error marking article as read: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error marking article as read: {str(e)}"}), 500
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--migrate', action='store_true', help='Migrate data from JSON files to SQLite database')

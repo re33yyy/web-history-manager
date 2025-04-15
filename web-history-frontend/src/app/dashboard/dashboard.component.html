@@ -1,0 +1,67 @@
+<div class="dashboard">
+  <header>
+    <button (click)="refreshContent()" class="refresh-btn" [disabled]="isLoading">
+      <span class="refresh-icon">↻</span> Refresh Content
+    </button>
+  </header>
+
+  <div *ngIf="isLoading" class="loading">Loading dashboard content...</div>
+  
+  <div *ngIf="errorMessage" class="error-message">
+    Error: {{ errorMessage }}
+  </div>
+
+  <div class="dashboard-content" *ngIf="!isLoading && !errorMessage">
+    <div *ngFor="let siteContent of dashboardData" class="site-section">
+      <div class="site-header" (click)="toggleSiteCollapse(siteContent, $event)">
+        <div class="site-title">
+          <button class="collapse-toggle">
+            <span *ngIf="siteContent.isCollapsed">▶</span>
+            <span *ngIf="!siteContent.isCollapsed">▼</span>
+          </button>
+          <h3>{{ siteContent.site.name }}</h3>
+        </div>
+        <div class="site-actions">
+          <a [href]="siteContent.site.url" target="_blank" class="visit-site" (click)="$event.stopPropagation()">
+            Visit Site
+          </a>
+        </div>
+      </div>
+
+      <div *ngIf="!siteContent.isCollapsed" class="article-list">
+        <div *ngFor="let article of siteContent.articles" 
+             class="article-item"
+             [class.read]="article.is_read">
+          <h4 class="article-title">
+            <a [href]="article.url" target="_blank" (click)="markAsRead(article.id); $event.stopPropagation()">
+              {{ article.title }}
+            </a>
+          </h4>
+          <div class="article-meta">
+            <span class="published-date" *ngIf="article.published_date">
+              {{ article.published_date }}
+            </span>
+            <span class="crawled-date">
+              Crawled: {{ formatDate(article.crawled_date) }}
+            </span>
+            <span *ngIf="article.is_read" class="read-indicator">Read</span>
+          </div>
+          <p class="article-summary" *ngIf="article.summary">
+            {{ article.summary }}
+          </p>
+        </div>
+
+        <div *ngIf="siteContent.articles.length === 0" class="empty-message">
+          No articles found for this site.
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="dashboardData.length === 0" class="empty-dashboard">
+      <p>No sites configured for crawling.</p>
+      <button (click)="triggerCrawl()" class="crawl-btn">
+        Start Crawling
+      </button>
+    </div>
+  </div>
+</div>
